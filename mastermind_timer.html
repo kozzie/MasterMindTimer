@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Mastermind Timer</title>
+    <style>
+        /* --- THIS IS THE FIX --- */
+        /* This tells the browser to include padding inside the element's height/width */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        /* --- END FIX --- */
+
+        body {
+            background-image: url('BrotherHoodOfFire.jpeg');
+            background-size: cover;
+            background-position: center 30%; /* You can still change this % */
+            background-repeat: no-repeat;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #000;
+            background-attachment: fixed;
+            padding: 15px; /* Applied universally now */
+        }
+
+        .container {
+            display: flex;
+            gap: 40px;
+            background-color: rgba(0, 0, 0, 0.85);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 25px rgba(255, 165, 0, 0.5);
+            width: 100%; /* Changed from 90% to use body padding */
+            max-width: 1000px;
+            border: 1px solid rgba(255, 165, 0, 0.3);
+            transition: all 0.3s ease; 
+        }
+
+        .timer-panel {
+            flex: 1;
+            text-align: center;
+        }
+
+        .agenda-panel {
+            flex: 1;
+            border-left: 1px solid #ff8c00;
+            padding-left: 40px;
+        }
+
+        h1, h2 {
+            color: #ff8c00;
+            text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.7);
+        }
+
+        #currentSectionTitle {
+            font-size: 2rem;
+            margin-bottom: 5px;
+            min-height: 70px;
+        }
+
+        #currentSubSectionTitle {
+            font-size: 1.5rem;
+            color: #ddd;
+            min-height: 30px;
+            font-weight: bold;
+        }
+
+        #timer {
+            font-size: 6rem;
+            font-weight: bold;
+            margin: 20px 0;
+            transition: color 0.5s ease;
+        }
+        
+        #timer.warning { color: #f39c12; }
+        #timer.danger { color: #e74c3c; }
+
+        .buttons button {
+            background-color: #ff8c00;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+        }
+
+        .buttons button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .buttons button:not(:disabled):hover {
+            background-color: #ffa500;
+        }
+        
+        #agendaList {
+            padding-top: 15px;
+            list-style: none;
+        }
+
+        #agendaList li {
+            padding: 8px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        #agendaList .current-section {
+            background-color: rgba(255, 140, 0, 0.3);
+            font-weight: bold;
+        }
+
+        .time-display {
+            float: right;
+        }
+
+        .original-time {
+            color: #aaa;
+            text-decoration: line-through;
+            margin-right: 10px;
+            font-size: 0.9em;
+        }
+
+        /* --- MOBILE RESPONSIVE STYLES --- */
+        @media (max-width: 768px) {
+            body {
+                align-items: flex-start; 
+            }
+
+            .container {
+                flex-direction: column; 
+                gap: 25px;
+            }
+
+            .agenda-panel {
+                border-left: none; 
+                border-top: 1px solid #ff8c00; 
+                padding-left: 0;
+                padding-top: 25px; 
+            }
+
+            #timer {
+                font-size: 4.5rem; 
+            }
+
+            #currentSectionTitle {
+                font-size: 1.6rem;
+                min-height: auto;
+            }
+
+            #currentSubSectionTitle {
+                font-size: 1.2rem;
+            }
+
+            .buttons button {
+                padding: 12px 20px;
+                font-size: 1rem;
+            }
+
+            #agendaList {
+                font-size: 1rem;
+            }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="timer-panel">
+            <h1 id="currentSectionTitle">Session Not Started</h1>
+            <h3 id="currentSubSectionTitle"></h3>
+            <div id="timer">00:00</div>
+            <div class="buttons">
+                <button id="startBtn" onclick="startSession()">Start Session</button>
+                <button id="pauseBtn" onclick="pauseResumeTimer()" disabled>Pause</button>
+                <button id="nextBtn" onclick="moveToNext()" disabled>Next</button>
+            </div>
+        </div>
+        <div class="agenda-panel">
+            <h2>Agenda</h2>
+            <ul id="agendaList"></ul>
+        </div>
+    </div>
+
+    <audio id="beep-sound" src="https://www.soundjay.com/buttons/sounds/button-16.mp3" preload="auto"></audio>
+
+    <script>
+        const sessionTemplate = [
+            { name: "Housekeeping/Arrival", duration: 10 * 60, subSections: 1 },
+            { name: "Focus Member Debrief", duration: 25 * 60, subSections: 1 },
+            { name: "Goal Debrief & Catchup", duration: 20 * 60, subSections: 2, subSectionLabels: ["Non-Focus Member 1", "Non-Focus Member 2"] },
+            { name: "Upcoming Goals", duration: 15 * 60, subSections: 3 },
+            { name: "Gratitudes & Affirmations", duration: 15 * 60, subSections: 3 }
+        ];
+
+        let sessionPlan = [];
+        let currentSectionIndex = -1;
+        let currentSubSectionIndex = 0;
+        let timeLeftInSection = 0;
+        let isPaused = false;
+        let timerInterval = null;
+
+        const timerEl = document.getElementById('timer');
+        const agendaListEl = document.getElementById('agendaList');
+        const sectionTitleEl = document.getElementById('currentSectionTitle');
+        const subSectionTitleEl = document.getElementById('currentSubSectionTitle');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const beepSound = document.getElementById('beep-sound');
+
+        function formatTime(seconds) {
+            const roundedSeconds = Math.round(seconds);
+            const mins = Math.floor(roundedSeconds / 60).toString().padStart(2, '0');
+            const secs = (roundedSeconds % 60).toString().padStart(2, '0');
+            return `${mins}:${secs}`;
+        }
+
+        function initializeSession() {
+            sessionPlan = sessionTemplate.map(s => ({ ...s, adjustedDuration: s.duration }));
+            const firstSectionTime = sessionPlan[0].adjustedDuration / sessionPlan[0].subSections;
+            timerEl.textContent = formatTime(firstSectionTime);
+            renderAgenda();
+        }
+
+        function renderAgenda() {
+            agendaListEl.innerHTML = '';
+            sessionPlan.forEach((section, index) => {
+                const li = document.createElement('li');
+                if (index === currentSectionIndex) {
+                    li.className = 'current-section';
+                }
+                
+                let timeHtml = `<span class="adjusted-time">${formatTime(section.adjustedDuration)}</span>`;
+                if (Math.round(section.adjustedDuration) !== section.duration) {
+                    timeHtml = `<span class="original-time">${formatTime(section.duration)}</span>` + timeHtml;
+                }
+
+                li.innerHTML = `${section.name} <span class="time-display">${timeHtml}</span>`;
+                agendaListEl.appendChild(li);
+            });
+        }
+
+        function startSession() {
+            currentSectionIndex = 0;
+            currentSubSectionIndex = 1;
+            startBtn.disabled = true;
+            pauseBtn.disabled = false;
+            nextBtn.disabled = false;
+            startCurrentSection();
+        }
+
+        function startCurrentSection() {
+            isPaused = false;
+            pauseBtn.textContent = 'Pause';
+            const section = sessionPlan[currentSectionIndex];
+            timeLeftInSection = Math.round(section.adjustedDuration / section.subSections);
+
+            sectionTitleEl.textContent = section.name;
+            
+            if (section.subSectionLabels) {
+                subSectionTitleEl.textContent = section.subSectionLabels[currentSubSectionIndex - 1];
+            } else if (section.subSections > 1) {
+                subSectionTitleEl.textContent = `Member ${currentSubSectionIndex} of ${section.subSections}`;
+            } else {
+                subSectionTitleEl.textContent = '';
+            }
+            
+            renderAgenda();
+            timerInterval = setInterval(updateTimer, 1000);
+            updateTimer();
+        }
+
+        function updateTimer() {
+            if (isPaused) return;
+            timerEl.textContent = formatTime(timeLeftInSection);
+            
+            if (timeLeftInSection <= 10) timerEl.classList.add('danger');
+            else if (timeLeftInSection <= 30) timerEl.classList.add('warning');
+            else timerEl.classList.remove('warning', 'danger');
+
+            if (timeLeftInSection <= 0) {
+                beepSound.play();
+                moveToNext();
+            } else {
+                timeLeftInSection--;
+            }
+        }
+        
+        function pauseResumeTimer() {
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? 'Resume' : 'Pause';
+        }
+
+        function moveToNext() {
+            clearInterval(timerInterval);
+            timerEl.classList.remove('warning', 'danger');
+
+            const variance = timeLeftInSection; 
+
+            adjustFutureTimings(variance);
+
+            const section = sessionPlan[currentSectionIndex];
+            if (currentSubSectionIndex < section.subSections) {
+                currentSubSectionIndex++;
+            } else {
+                currentSectionIndex++;
+                currentSubSectionIndex = 1;
+            }
+
+            if (currentSectionIndex >= sessionPlan.length) {
+                endSession();
+                return;
+            }
+            startCurrentSection();
+        }
+
+        function adjustFutureTimings(varianceInSeconds) {
+            if (varianceInSeconds === 0) return;
+
+            let totalFutureDuration = 0;
+            for (let i = currentSectionIndex; i < sessionPlan.length; i++) {
+                if (i === currentSectionIndex) {
+                    const remainingSubSections = sessionPlan[i].subSections - currentSubSectionIndex;
+                    totalFutureDuration += (sessionPlan[i].adjustedDuration / sessionPlan[i].subSections) * remainingSubSections;
+                } else {
+                    totalFutureDuration += sessionPlan[i].adjustedDuration;
+                }
+            }
+
+            if (totalFutureDuration <= 0) return;
+
+            for (let i = currentSectionIndex; i < sessionPlan.length; i++) {
+                let currentBlockDuration = 0;
+                if (i === currentSectionIndex) {
+                    const remainingSubSections = sessionPlan[i].subSections - currentSubSectionIndex;
+                    currentBlockDuration = (sessionPlan[i].adjustedDuration / sessionPlan[i].subSections) * remainingSubSections;
+                } else {
+                    currentBlockDuration = sessionPlan[i].adjustedDuration;
+                }
+                const proportion = currentBlockDuration / totalFutureDuration;
+                const adjustment = varianceInSeconds * proportion;
+                sessionPlan[i].adjustedDuration += adjustment;
+            }
+        }
+
+        function endSession() {
+            sectionTitleEl.textContent = "Session Complete!";
+            subSectionTitleEl.textContent = "";
+            timerEl.textContent = "Done";
+            pauseBtn.disabled = true;
+            nextBtn.disabled = true;
+        }
+
+        document.addEventListener('DOMContentLoaded', initializeSession);
+    </script>
+</body>
+</html>
